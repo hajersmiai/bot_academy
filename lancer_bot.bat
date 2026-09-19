@@ -1,0 +1,4 @@
+@echo off
+set TELEGRAM_BOT_TOKEN=8774356914:AAHnkvh6i7KhdJ6x36b2U61P3Rvc0jV9ZY0
+python bot.py
+pause
