@@ -83,7 +83,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 ⏳الآن سننطلق معك في المقابلة:
 
- بعد إكمال النموذج، اضغطي /interview للبدء
+  اضغطي على /interview للبدء
 
 هل أنت مستعدة؟؟ 🤔
 """
