@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 # États
 WELCOME, NAME, NATIONALITY, POSITION, EXPERIENCE, TECHNICAL, MOTIVATION, AVAILABILITY, CONFIRMATION = range(9)
 # Sheet ID - À remplacer avec votre ID
-SHEET_ID = "1TQLcg8d1Py3XbuqZsUvw9qsUswqpH1Ia4edDEZhSSVg/edit?gid=0#gid=0"
+SHEET_ID = "1TQLcg8d1Py3XbuqZsUvw9qsUswqpH1Ia4edDEZhSSVg"
 # Questions d'interview
 QUESTIONS = {
      "NAME": {
