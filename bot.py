@@ -451,7 +451,7 @@ def save_question_to_sheet(candidate_name: str, telegram_id: int, question: str)
             logger.info(f"✅ Question enregistrée pour {candidate_name}")
     except Exception as e:
         logger.error(f"Erreur Google Sheets: {e}")
-        raise
+        
 
 def save_candidate(candidate_data: dict) -> None:
     """Sauvegarde les données"""
