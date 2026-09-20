@@ -286,24 +286,43 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     )
     return ConversationHandler.END
 async def question_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Démarre le flux de question"""
+    """Démarre le flux de question - vérifie d'abord si la candidate existe"""
     user = update.effective_user
     
+    logger.info(f"📝 /question appelée par Telegram ID: {user.id}")
+    
     # Vérifier si la candidate a complété l'interview
-    # (on va chercher dans Google Sheets)
     if not has_completed_interview(user.id):
+        logger.warning(f"⚠️ Candidate {user.id} n'a pas complété l'interview")
+        
         await update.message.reply_text(
-            "⚠️ يجب عليك أولاً إكمال المقابلة قبل طرح الأسئلة\n"
-            "اضغطي /interview للبدء",
+            """
+⚠️ **نعتذر!**
+
+يجب عليك أولاً إكمال المقابلة قبل طرح الأسئلة.
+
+📝 الرجاء تنفيذ الخطوات التالية:
+1️⃣ اضغطي على /start
+2️⃣ اضغطي على /interview
+3️⃣ أكملي كل الأسئلة السبعة
+4️⃣ ثم استخدمي /question
+
+شكراً لكِ! 🙏
+""",
             reply_markup=ReplyKeyboardRemove()
         )
         return ConversationHandler.END
+    
+    # Si la candidate existe, demander sa question
+    logger.info(f"✅ Candidate {user.id} a le droit de poser une question")
     
     await update.message.reply_text(
         "📝 تفضلي، اكتبي سؤالك:\n\n(أرسلي رسالة واحدة فقط)",
         reply_markup=ReplyKeyboardRemove()
     )
     return ASKING_QUESTION
+
+
 
 async def save_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Enregistre la question dans Google Sheets"""
@@ -335,20 +354,51 @@ async def save_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     
     return ConversationHandler.END
 def has_completed_interview(telegram_id: int) -> bool:
-    """Vérifie si la candidate a complété l'interview"""
+    """
+    Vérifie si la candidate a complété l'interview en cherchant son Telegram_ID
+    dans la feuille "Candidates"
+    
+    Retourne:
+        True si la candidate existe dans la feuille
+        False sinon
+    """
     try:
         sheet = get_sheet()
-        if sheet:
-            # Chercher la candidate dans la feuille "Candidates"
-            all_values = sheet.get_all_values()
-            for row in all_values[1:]:  # Ignorer l'header
-                if len(row) > 3 and str(row[3]) == str(telegram_id):
+        if not sheet:
+            logger.error("❌ Impossible de se connecter à Google Sheets")
+            return False
+        
+        # Récupérer toutes les valeurs
+        all_values = sheet.get_all_values()
+        logger.info(f"📊 Total lignes dans Candidates: {len(all_values)}")
+        
+        if len(all_values) <= 1:  # Juste l'header
+            logger.warning(f"⚠️ Aucune candidate trouvée pour Telegram_ID: {telegram_id}")
+            return False
+        
+        # Chercher le Telegram_ID dans la colonne D (index 3)
+        telegram_id_str = str(telegram_id)
+        
+        for idx, row in enumerate(all_values[1:], start=2):  # Ignorer l'header
+            if len(row) > 3:  # Vérifier que la ligne a assez de colonnes
+                candidate_telegram_id = str(row[3]).strip()  # Colonne D: Telegram_ID
+                candidate_name = row[1] if len(row) > 1 else "Unknown"
+                
+                logger.info(f"🔍 Ligne {idx}: Cherche {telegram_id_str} vs {candidate_telegram_id}")
+                
+                if candidate_telegram_id == telegram_id_str:
+                    logger.info(f"✅ Candidate trouvée: {candidate_name} (ID: {telegram_id})")
                     return True
+        
+        logger.warning(f"⚠️ Aucune candidate trouvée avec Telegram_ID: {telegram_id}")
         return False
+        
     except Exception as e:
-        logger.error(f"Erreur: {e}")
+        logger.error(f"❌ ERREUR dans has_completed_interview: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
         return False
-
+    
 def get_candidate_name(telegram_id: int) -> str:
     """Récupère le nom de la candidate"""
     try:
@@ -369,39 +419,39 @@ def save_question_to_sheet(candidate_name: str, telegram_id: int, question: str)
         creds_json = os.getenv('GOOGLE_CREDENTIALS')
         if not creds_json:
             logger.error("GOOGLE_CREDENTIALS non défini!")
-            return
-        
-        creds_dict = json.loads(creds_json)
-        gc = gspread.service_account_from_dict(creds_dict)
-        sh = gc.open_by_key(SHEET_ID)
-        
-        # Ouvrir la feuille "Questions"
+            raise Exception("GOOGLE_CREDENTIALS non défini!")
         try:
-            questions_sheet = sh.worksheet("Questions")
-        except:
-            # Si la feuille n'existe pas, la créer
-            questions_sheet = sh.add_worksheet(title="Questions", rows=100, cols=8)
-            # Ajouter l'header
-            header = ["ID", "Candidate_Name", "Telegram_ID", "Question", "Date_Question", "Status", "Reponse_admin", "Date_Reponse"]
-            questions_sheet.insert_row(header, index=1)
-        
-        # Ajouter la question
-        row_data = [
-            "",  # ID (auto)
-            candidate_name,
-            str(telegram_id),
-            question,
-            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "En attente",
-            "",
-            ""
-        ]
-        
-        questions_sheet.insert_row(row_data, index=2)
-        logger.info(f"✅ Question enregistrée pour {candidate_name}")
+            creds_dict = json.loads(creds_json)
+            gc = gspread.service_account_from_dict(creds_dict)
+            sh = gc.open_by_key(SHEET_ID)
+            
+            # Ouvrir la feuille "Questions"
+            try:
+                questions_sheet = sh.worksheet("Questions")
+            except:
+                # Si la feuille n'existe pas, la créer
+                questions_sheet = sh.add_worksheet(title="Questions", rows=100, cols=8)
+                # Ajouter l'header
+                header = ["ID", "Candidate_Name", "Telegram_ID", "Question", "Date_Question", "Status", "Reponse_admin", "Date_Reponse"]
+                questions_sheet.insert_row(header, index=1)
+            
+            # Ajouter la question
+            row_data = [
+                "",  # ID (auto)
+                candidate_name,
+                str(telegram_id),
+                question,
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "En attente",
+                "",
+                ""
+            ]
+            
+            questions_sheet.insert_row(row_data, index=2)
+            logger.info(f"✅ Question enregistrée pour {candidate_name}")
     except Exception as e:
         logger.error(f"Erreur Google Sheets: {e}")
-    
+        raise
 
 def save_candidate(candidate_data: dict) -> None:
     """Sauvegarde les données"""
