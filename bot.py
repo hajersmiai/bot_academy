@@ -419,40 +419,41 @@ def save_question_to_sheet(candidate_name: str, telegram_id: int, question: str)
         creds_json = os.getenv('GOOGLE_CREDENTIALS')
         if not creds_json:
             logger.error("GOOGLE_CREDENTIALS non défini!")
-            raise Exception("GOOGLE_CREDENTIALS non défini!")
-        try:
-            creds_dict = json.loads(creds_json)
-            gc = gspread.service_account_from_dict(creds_dict)
-            sh = gc.open_by_key(SHEET_ID)
-            
-            # Ouvrir la feuille "Questions"
-            try:
-                questions_sheet = sh.worksheet("Questions")
-            except:
-                # Si la feuille n'existe pas, la créer
-                questions_sheet = sh.add_worksheet(title="Questions", rows=100, cols=8)
-                # Ajouter l'header
-                header = ["ID", "Candidate_Name", "Telegram_ID", "Question", "Date_Question", "Status", "Reponse_admin", "Date_Reponse"]
-                questions_sheet.insert_row(header, index=1)
-            
-            # Ajouter la question
-            row_data = [
-                "",  # ID (auto)
-                candidate_name,
-                str(telegram_id),
-                question,
-                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "En attente",
-                "",
-                ""
-            ]
-            
-            questions_sheet.insert_row(row_data, index=2)
-            logger.info(f"✅ Question enregistrée pour {candidate_name}")
-    except Exception as e:
-        logger.error(f"Erreur Google Sheets: {e}")
+            return
         
-
+        creds_dict = json.loads(creds_json)
+        gc = gspread.service_account_from_dict(creds_dict)
+        sh = gc.open_by_key(SHEET_ID)
+        
+        # Ouvrir la feuille "Questions"
+        try:
+            questions_sheet = sh.worksheet("Questions")
+        except:
+            # Si la feuille n'existe pas, la créer
+            questions_sheet = sh.add_worksheet(title="Questions", rows=100, cols=8)
+            header = ["ID", "Candidate_Name", "Telegram_ID", "Question", "Date_Question", "Status", "Reponse_admin", "Date_Reponse"]
+            questions_sheet.insert_row(header, index=1)
+        
+        # Ajouter la question
+        row_data = [
+            "",
+            candidate_name,
+            str(telegram_id),
+            question,
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "En attente",
+            "",
+            ""
+        ]
+        
+        questions_sheet.insert_row(row_data, index=2)
+        logger.info(f"✅ Question enregistrée pour {candidate_name}")
+        
+    except Exception as e:
+        logger.error(f"❌ ERREUR Google Sheets: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        
 def save_candidate(candidate_data: dict) -> None:
     """Sauvegarde les données"""
     os.makedirs('candidates_data', exist_ok=True)
