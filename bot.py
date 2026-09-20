@@ -1024,15 +1024,10 @@ def main() -> None:
     
     app = Application.builder().token(TOKEN).build()
     
-    # Handler pour /interview
-    app.add_handler(CommandHandler("interview", interview_start))
-    app.add_handler(CommandHandler("question", question_command))  # ← AJOUTEZ CETTE LIGNE
-    app.add_handler(CommandHandler("admin_questions", admin_questions))
-    app.add_handler(CommandHandler("repondre", repondre_command))
-    app.add_handler(CommandHandler("rechercher", search_command))
-    app.add_handler(CommandHandler("reponses", reponses_command))
-    # Handler principal
-    conv_handler = ConversationHandler(
+    # ============================================
+    # Handler 1: INTERVIEW (/start flow)
+    # ============================================
+    interview_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
             WELCOME: [MessageHandler(filters.TEXT & ~filters.COMMAND, interview_start)],
@@ -1044,13 +1039,35 @@ def main() -> None:
             MOTIVATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_motivation)],
             AVAILABILITY: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_availability)],
             CONFIRMATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, confirm)],
-            ASKING_QUESTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_question)],
-            ANSWERING_QUESTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_answer)],  # ← AJOUTEZ ICI
-          },
+        },
         fallbacks=[CommandHandler("cancel", cancel)],
     )
     
-    app.add_handler(conv_handler)
+    # ============================================
+    # Handler 2: QUESTIONS (/question et /repondre)
+    # ============================================
+    question_handler = ConversationHandler(
+        entry_points=[
+            CommandHandler("question", question_command),
+            CommandHandler("repondre", repondre_command)
+        ],
+        states={
+            ASKING_QUESTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_question)],
+            ANSWERING_QUESTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_answer)],
+        },
+        fallbacks=[CommandHandler("cancel", cancel)],
+    )
+    
+    # ============================================
+    # Ajouter les handlers au bot
+    # ============================================
+    app.add_handler(interview_handler)
+    app.add_handler(question_handler)
+    
+    # Admin commands (pas de ConversationHandler - réponses directes)
+    app.add_handler(CommandHandler("admin_questions", admin_questions))
+    app.add_handler(CommandHandler("rechercher", search_command))
+    app.add_handler(CommandHandler("reponses", reponses_command))
     
     print("✅ Bot démarré...")
     app.run_polling()
